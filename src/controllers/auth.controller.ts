@@ -26,27 +26,16 @@ const SignupSchema = z.object({
   phoneNumber: z.string().min(5).max(15),
 });
 
-function formatPhone(countryCode: string, phoneNumber: string): string {
-  const parsed = parsePhoneNumberFromString(`${countryCode}${phoneNumber}`);
-  if (!parsed?.isValid()) throw new Error("Invalid phone number");
-  return parsed.number;
-}
 
 export async function signup(req: Request, res: Response) {
   const { email, password, name, countryCode, phoneNumber } = SignupSchema.parse(req.body);
 
-  let formattedPhone: string;
-  try {
-    formattedPhone = formatPhone(countryCode, phoneNumber);
-  } catch {
-    return res.status(400).json({ error: "Invalid phone number" });
-  }
-
-  const exists = await prisma.user.findFirst({ where: { OR: [{ email }, { phone: formattedPhone }] } });
+  
+  const exists = await prisma.user.findFirst({ where: { OR: [{ email }, { phone: phoneNumber }] } });
   if (exists) return res.status(400).json({ error: "User already exists" });
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({ data: { email, phone: formattedPhone, countryCode, name, passwordHash } });
+  const user = await prisma.user.create({ data: { email, phone: phoneNumber, countryCode, name, passwordHash } });
 
   return res.status(201).json({ status: true, userId: user.id });
 }
@@ -112,10 +101,10 @@ export async function completeProfile(req: Request, res: Response) {
       return { user, family };
     });
 
-    return res.status(201).json({ ok: true, ...result });
+    return res.status(201).json({ status:true, ...result });
   } catch (err) {
     console.error("Complete profile error:", err);
-    return res.status(500).json({ error: "Unable to complete registration" });
+    return res.status(500).json({ status:false, error: "Unable to complete registration" });
   }
 }
 
