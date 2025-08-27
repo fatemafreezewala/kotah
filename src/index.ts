@@ -1,3 +1,4 @@
+import "dotenv/config"; // loads .env automatically
 import express, { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 
