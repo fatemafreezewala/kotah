@@ -78,7 +78,7 @@ export async function login(req: Request, res: Response) {
   const { token: refresh, jti, exp } = signRefresh({ sub: user.id });
   await prisma.session.create({ data: { userId: user.id, refreshJti: jti, expiresAt: exp } });
 
-  return res.json({ access, refresh, user });
+  return res.status(200).json({ access, refresh, user,status: true});
 }
 
 const CompleteProfileSchema = z.object({
@@ -93,39 +93,40 @@ const CompleteProfileSchema = z.object({
 
 export async function completeProfile(req: Request, res: Response) {
   const userId = (req as any).user?.sub;
-  const { name, gender, birthDate, avatarUrl, familyName, roleInFamily, locations } =
-    CompleteProfileSchema.parse(req.body);
+  return res.status(201).json({ status:true, userId });
+  // const { name, gender, birthDate, avatarUrl, familyName, roleInFamily, locations } =
+  //   CompleteProfileSchema.parse(req.body);
 
-  try {
-    const result = await prisma.$transaction(async (tx:any) => {
-      const user = await tx.user.update({
-        where: { id: userId },
-        data: { name, ...(gender && { gender }), ...(birthDate && { birthDate }), ...(avatarUrl && { avatarUrl }) },
-      });
+  // try {
+  //   const result = await prisma.$transaction(async (tx:any) => {
+  //     const user = await tx.user.update({
+  //       where: { id: userId },
+  //       data: { name, ...(gender && { gender }), ...(birthDate && { birthDate }), ...(avatarUrl && { avatarUrl }) },
+  //     });
 
-      const family = await tx.family.create({ data: { name: familyName, ownerId: userId } });
-      await tx.familyMember.create({ data: { userId, familyId: family.id, role: roleInFamily } });
+  //     const family = await tx.family.create({ data: { name: familyName, ownerId: userId } });
+  //     await tx.familyMember.create({ data: { userId, familyId: family.id, role: roleInFamily } });
 
-      if (locations?.length) {
-        await tx.location.createMany({
-          data: locations.map((l) => ({
-            familyId: family.id,
-            label: l.label,
-            address: l.address,
-            lat: l.lat,
-            lng: l.lng,
-          })),
-        });
-      }
+  //     if (locations?.length) {
+  //       await tx.location.createMany({
+  //         data: locations.map((l) => ({
+  //           familyId: family.id,
+  //           label: l.label,
+  //           address: l.address,
+  //           lat: l.lat,
+  //           lng: l.lng,
+  //         })),
+  //       });
+  //     }
 
-      return { user, family };
-    });
+  //     return { user, family };
+  //   });
 
-    return res.status(201).json({ status:true, ...result });
-  } catch (err) {
-    console.error("Complete profile error:", err);
-    return res.status(500).json({ status:false, error: "Unable to complete registration" });
-  }
+  //   return res.status(201).json({ status:true, ...result });
+  // } catch (err) {
+  //   console.error("Complete profile error:", err);
+  //   return res.status(500).json({ status:false, error: "Unable to complete registration" });
+  // }
 }
 
 // You will need to implement signAccess & signRefresh functions or use your JWT auth layer here
