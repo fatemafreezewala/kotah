@@ -18,6 +18,7 @@ enum RoleInFamily {
   SON
   DAUGHTER
   OTHER
+  GRANDPARENTS
 }
 model User {
   id            String   @id @default(auto()) @map("_id") @db.ObjectId

@@ -87,7 +87,7 @@ const CompleteProfileSchema = z.object({
   birthDate: ISODate.optional(),
   avatarUrl: z.string().url().optional(),
   familyName: z.string().min(1).default("My Family"),
-  roleInFamily: z.enum(["OWNER", "SPOUSE", "SON", "DAUGHTER", "GUARDIAN", "OTHER"]).default("OWNER"),
+  roleInFamily: z.enum(["FATHER", "MOTHER", "SON", "DAUGHTER", "GRANDPARENTS", "OTHER"]).default("OTHER"),
   locations: z.array(LocationSchema).optional(),
 });
 
