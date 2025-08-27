@@ -28,18 +28,38 @@ const SignupSchema = z.object({
 
 
 export async function signup(req: Request, res: Response) {
-  const { email, password, name, countryCode, phoneNumber } = SignupSchema.parse(req.body);
-
+    const { email, password, name, countryCode, phoneNumber } = SignupSchema.parse(req.body);
   
-  const exists = await prisma.user.findFirst({ where: { OR: [{ email }, { phone: phoneNumber }] } });
-  if (exists) return res.status(400).json({ error: "User already exists" });
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({ data: { email, phone: phoneNumber, countryCode, name, passwordHash } });
-
-  return res.status(201).json({ status: true, userId: user.id });
-}
-
+    // Check if email or phone already exists
+    const exists = await prisma.user.findFirst({
+      where: { OR: [{ email }, { phone: phoneNumber }] },
+    });
+    if (exists) return res.status(400).json({ error: "User already exists" });
+  
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+  
+    // Create user
+    const user = await prisma.user.create({
+      data: { email, phone: phoneNumber, countryCode, name, passwordHash },
+    });
+  
+    // 🔑 Generate tokens
+    const access = signAccess({ sub: user.id });
+    const { token: refresh, jti, exp } = signRefresh({ sub: user.id });
+  
+    // Save session in DB
+    await prisma.session.create({
+      data: { userId: user.id, refreshJti: jti, expiresAt: exp },
+    });
+  
+    return res.status(201).json({
+      status: true,
+      userId: user.id,
+      access,
+      refresh,
+    });
+  }
 const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
