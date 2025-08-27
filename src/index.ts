@@ -1,6 +1,7 @@
 import "dotenv/config"; // loads .env automatically
-import express, { Request, Response } from "express";
+import express from "express";
 import { PrismaClient } from "@prisma/client";
+import userRoutes from "./routes/user.routes.js"; // ✅ Make sure this exists
 
 const app = express();
 const prisma = new PrismaClient();
@@ -8,28 +9,12 @@ const prisma = new PrismaClient();
 app.use(express.json());
 
 // Health check
-app.get("/", (req: Request, res: Response) => {
+app.get("/", (req, res) => {
   res.json({ status: "okkk" });
 });
 
-// Get all users
-app.get("/users", async (req: Request, res: Response) => {
-  const users = await prisma.user.findMany();
-  res.json(users);
-});
-
-// Create user
-app.post("/users", async (req: Request, res: Response) => {
-  const { name, email } = req.body;
-  try {
-    const user = await prisma.user.create({
-      data: { name, email },
-    });
-    res.json(user);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// 🔐 Routes (signup, login, completeProfile)
+app.use("/api", userRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
