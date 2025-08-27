@@ -8,7 +8,7 @@ app.use(express.json());
 
 // Health check
 app.get("/", (req: Request, res: Response) => {
-  res.json({ status: "okk" });
+  res.json({ status: "okkk" });
 });
 
 // Get all users
