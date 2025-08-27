@@ -9,7 +9,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
 
   const token = authHeader.split(" ")[1];
   try {
-    const decoded = jwt.verify(token, "kotah-long-random-access");
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET!);
     (req as any).user = decoded;
     next();
   } catch (err) {

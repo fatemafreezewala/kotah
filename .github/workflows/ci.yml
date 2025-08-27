@@ -28,14 +28,16 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      - name: Upload Environment Variables
+      - name: Upload Environment Variables 
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
           PORT: ${{ secrets.PORT }}
         run: |
           echo "DATABASE_URL=${DATABASE_URL}" > .env
           echo "JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}" >> .env
+          echo "JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}" >> .env
           echo "PORT=${PORT}" >> .env
 
       - name: Restart Application with PM2
