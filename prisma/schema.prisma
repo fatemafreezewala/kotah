@@ -1,8 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
@@ -12,6 +8,7 @@ datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
 }
+
 enum RoleInFamily {
   FATHER
   MOTHER
@@ -20,35 +17,37 @@ enum RoleInFamily {
   OTHER
   GRANDPARENTS
 }
-model User {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  email         String?  @unique
-  phone         String?  @unique
-  countryCode   String?
-  passwordHash  String?
-  name          String?
-  gender        String?
-  birthDate     DateTime?
-  avatarUrl     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
 
-  // relations
-  memberships   FamilyMember[]
-  sessions      Session[]
-  ownedFamilies Family[] @relation("FamilyOwner") // families where the user is owner
+model User {
+  id                 String         @id @default(auto()) @map("_id") @db.ObjectId
+  email              String?        @unique
+  phone              String?        @unique
+  countryCode        String?
+  passwordHash       String?
+  name               String?
+  gender             String?
+  birthDate          DateTime?
+  avatarUrl          String?
+  loginCode          String?        @unique // For children/grandparents login
+  loginCodeExpiresAt DateTime? // Optional expiration for code
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  taskTemplates      TaskTemplate[] @relation("UserTaskTemplates")
+  memberships        FamilyMember[]
+  sessions           Session[]
+  ownedFamilies      Family[]       @relation("FamilyOwner")
+  createdTasks       Task[]         @relation("CreatedTasks")
 }
 
 model Family {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  ownerId   String   @db.ObjectId
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  name    String
+  ownerId String @db.ObjectId
 
-  // relations
-  owner     User     @relation("FamilyOwner", fields: [ownerId], references: [id])
-  members   FamilyMember[]
+  owner       User           @relation("FamilyOwner", fields: [ownerId], references: [id])
+  members     FamilyMember[]
   invitations Invitation[]
-  locations  Location[]
+  locations   Location[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -57,15 +56,15 @@ model Family {
 }
 
 model FamilyMember {
-  id          String       @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String       @db.ObjectId
-  familyId    String       @db.ObjectId
-  role        RoleInFamily
-  createdAt   DateTime     @default(now())
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String       @db.ObjectId
+  familyId  String       @db.ObjectId
+  role      RoleInFamily
+  createdAt DateTime     @default(now())
 
-  // relations
-  user        User         @relation(fields: [userId], references: [id])
-  family      Family       @relation(fields: [familyId], references: [id])
+  user        User             @relation(fields: [userId], references: [id])
+  family      Family           @relation(fields: [familyId], references: [id])
+  assignments TaskAssignment[]
 
   @@unique([userId, familyId])
   @@index([familyId])
@@ -73,18 +72,17 @@ model FamilyMember {
 }
 
 model Invitation {
-  id           String     @id @default(auto()) @map("_id") @db.ObjectId
-  familyId     String     @db.ObjectId
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  familyId     String       @db.ObjectId
   invitedPhone String?
   invitedEmail String?
   role         RoleInFamily
-  code         String     // 6-digit or UUID
+  code         String // 6-digit or UUID
   expiresAt    DateTime
   acceptedAt   DateTime?
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime     @default(now())
 
-  // relations
-  family       Family     @relation(fields: [familyId], references: [id])
+  family Family @relation(fields: [familyId], references: [id])
 
   @@index([familyId])
   @@index([invitedPhone])
@@ -93,27 +91,26 @@ model Invitation {
 }
 
 model Session {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String     @db.ObjectId
-  refreshJti  String     @unique
-  createdAt   DateTime   @default(now())
-  expiresAt   DateTime
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  refreshJti String   @unique
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
 
-  // relations
-  user        User       @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([expiresAt])
 }
 
 model Otp {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  target      String    // phone or email
-  code        String
-  purpose     String    // "signup" | "login" | "invite"
-  expiresAt   DateTime
-  consumedAt  DateTime?
-  createdAt   DateTime  @default(now())
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  target     String // phone or email
+  code       String
+  purpose    String // "signup" | "login" | "invite"
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   @@index([target])
   @@index([code])
@@ -129,8 +126,79 @@ model Location {
   lng       Float?
   createdAt DateTime @default(now())
 
-  // relations
-  family    Family   @relation(fields: [familyId], references: [id])
+  family Family @relation(fields: [familyId], references: [id])
 
   @@index([familyId])
+}
+
+model Task {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  categoryId  String   @db.ObjectId
+  templateId  String?  @db.ObjectId
+  createdById String   @db.ObjectId
+  timeOfDay   String? // morning | afternoon | evening
+  date        DateTime
+  repeat      String? // daily | weekly | monthly | once
+  reward      String? // coins or "Ice Cream"
+  visibility  String? // public | private | family
+  complexity  String?
+  popularity  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category    Category         @relation(fields: [categoryId], references: [id])
+  template    TaskTemplate?    @relation(fields: [templateId], references: [id])
+  createdBy   User             @relation("CreatedTasks", fields: [createdById], references: [id])
+  assignments TaskAssignment[]
+}
+
+model TaskTemplate {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  reward      String?
+  complexity  String?
+  popularity  String?
+  imageUrl    String?
+  categoryId  String  @db.ObjectId
+  createdById String? @db.ObjectId
+
+  category  Category @relation(fields: [categoryId], references: [id])
+  createdBy User?    @relation("UserTaskTemplates", fields: [createdById], references: [id])
+  tasks     Task[]
+}
+
+model Category {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  iconUrl   String?
+  createdAt DateTime @default(now())
+
+  templates TaskTemplate[]
+  tasks     Task[]
+}
+
+model TaskAssignment {
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  taskId         String @db.ObjectId
+  familyMemberId String @db.ObjectId
+
+  task         Task         @relation(fields: [taskId], references: [id])
+  familyMember FamilyMember @relation(fields: [familyMemberId], references: [id])
+
+  assignedAt  DateTime  @default(now())
+  completedAt DateTime?
+  approvedAt  DateTime?
+  coinsEarned Int       @default(0)
+  status      String    @default("pending")
+
+  requiresApproval       Boolean @default(false)
+  allowNextDayCompletion Boolean @default(false)
+
+  @@unique([taskId, familyMemberId])
+  @@index([taskId])
+  @@index([familyMemberId])
+  @@index([status])
 }

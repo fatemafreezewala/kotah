@@ -1,9 +1,7 @@
-// src/controllers/user.controller.ts
 
 import { Request, Response } from "express";
 import { z } from "zod";
 import bcrypt from "bcrypt";
-import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { PrismaClient } from "@prisma/client";
 import { signAccess, signRefresh } from "../utils/jwt.js";
 
