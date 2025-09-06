@@ -20,60 +20,132 @@ const CreateCustomTaskSchema = z.object({
   imageUrl: z.string().url().optional(),
 });
 
-export async function createCustomTask(req: Request, res: Response) {
+// export async function createCustomTask(req: Request, res: Response) {
+//   const userId = (req as any).user?.sub;
+//   const input = CreateCustomTaskSchema.safeParse(req.body);
+//   if (!input.success) return res.status(400).json({ error: input.error.flatten() });
+
+//   const {
+//     title, description, categoryId, assignedTo,
+//     date, timeOfDay, repeat, reward,
+//     visibility, complexity, popularity, imageUrl
+//   } = input.data;
+
+//   try {
+//     const result = await prisma.$transaction(async (tx) => {
+//       const template = await tx.taskTemplate.create({
+//         data: {
+//           title,
+//           description,
+//           reward,
+//           complexity,
+//           popularity,
+//           imageUrl,
+//           categoryId,
+//           createdById: userId,
+//         }
+//       });
+
+//       const task = await tx.task.create({
+//         data: {
+//           title,
+//           description,
+//           date,
+//           categoryId,
+//           templateId: template.id,
+//           assignedTo,
+//           createdById: userId,
+//           timeOfDay,
+//           repeat,
+//           reward,
+//           visibility,
+//           complexity,
+//           popularity,
+//         }
+//       });
+
+//       return { template, task };
+//     });
+
+//     return res.status(201).json({ status: true, ...result });
+//   } catch (err) {
+//     console.error("Create custom task error:", err);
+//     return res.status(500).json({ status: false, error: "Failed to create custom task" });
+//   }
+// }
+export async function createAndAssignTask(req: Request, res: Response) {
   const userId = (req as any).user?.sub;
-  const input = CreateCustomTaskSchema.safeParse(req.body);
-  if (!input.success) return res.status(400).json({ error: input.error.flatten() });
 
   const {
-    title, description, categoryId, assignedTo,
-    date, timeOfDay, repeat, reward,
-    visibility, complexity, popularity, imageUrl
-  } = input.data;
+    title,
+    description,
+    date,
+    categoryId,
+    templateId,
+    reward,
+    visibility,
+    complexity,
+    popularity,
+    timeOfDay,
+    repeat,
+    assignedMemberIds = [], // array of familyMemberId strings
+  } = req.body;
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      const template = await tx.taskTemplate.create({
-        data: {
-          title,
-          description,
-          reward,
-          complexity,
-          popularity,
-          imageUrl,
-          categoryId,
-          createdById: userId,
-        }
-      });
-
-      const task = await tx.task.create({
-        data: {
-          title,
-          description,
-          date,
-          categoryId,
-          templateId: template.id,
-          assignedTo,
-          createdById: userId,
-          timeOfDay,
-          repeat,
-          reward,
-          visibility,
-          complexity,
-          popularity,
-        }
-      });
-
-      return { template, task };
+    // Step 1: Create the task
+    const task = await prisma.task.create({
+      data: {
+        title,
+        description,
+        date: new Date(date),
+        categoryId,
+        createdById: userId,
+        templateId,
+        reward,
+        visibility,
+        complexity,
+        popularity,
+        timeOfDay,
+        repeat,
+      },
     });
 
-    return res.status(201).json({ status: true, ...result });
+    // Step 2: Create task assignments for each family member
+    const assignments = await Promise.all(
+      assignedMemberIds.map((familyMemberId: string) =>
+        prisma.taskAssignment.create({
+          data: {
+            taskId: task.id,
+            familyMemberId,
+          },
+        })
+      )
+    );
+
+    // Step 3: Return full task with its assignments
+    const fullTask = await prisma.task.findUnique({
+      where: { id: task.id },
+      include: {
+        category: true,
+        template: true,
+        assignments: {
+          include: {
+            familyMember: {
+              include: {
+                user: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return res.json({ status: true, task: fullTask });
   } catch (err) {
-    console.error("Create custom task error:", err);
-    return res.status(500).json({ status: false, error: "Failed to create custom task" });
+    console.error("Error creating task:", err);
+    return res.status(500).json({ status: false, error: "Failed to create task" });
   }
 }
-
 export async function getTasks(req: Request, res: Response) {
   const userId = (req as any).user?.sub;
   const categoryId = req.query.categoryId as string | undefined;
